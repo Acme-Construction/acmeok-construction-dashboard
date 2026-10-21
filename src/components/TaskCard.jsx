@@ -15,6 +15,7 @@ export function TaskCard({ task, onRefetch, roster = [] }) {
   // Cancel UI state
   const [cancellingId, setCancellingId] = useState(null)
   const [cancelNotes, setCancelNotes] = useState({})
+  const [undoReasons, setUndoReasons] = useState({})
   // Reassign UI state
   const [reassigningId, setReassigningId] = useState(null)
   const [reassignEmails, setReassignEmails] = useState({})
@@ -40,13 +41,14 @@ export function TaskCard({ task, onRefetch, roster = [] }) {
   }
 
   async function handleAction(assignee, action) {
+    const note = noteTexts[assignee.taskId] || ''
+    if (action === 'complete' && !note.trim()) return
     setActingOn(assignee.taskId)
     setActionError(null)
     try {
       if (action === 'acknowledge') {
         await acknowledgeTask(assignee.taskId)
       } else {
-        const note = noteTexts[assignee.taskId] || ''
         await completeTask(assignee.taskId, note)
         setSubmittedIds((prev) => new Set([...prev, assignee.taskId]))
       }
@@ -59,11 +61,13 @@ export function TaskCard({ task, onRefetch, roster = [] }) {
   }
 
   async function handleCancel(assignee) {
+    const note = cancelNotes[assignee.taskId] || ''
+    if (!note.trim()) return
     setActingOn(assignee.taskId)
     setActionError(null)
     try {
       const idToken = await getToken()
-      await cancelTask(idToken, assignee.taskId, cancelNotes[assignee.taskId] || '')
+      await cancelTask(idToken, assignee.taskId, note)
       setCancellingId(null)
       await onRefetch()
     } catch (err) {
@@ -74,11 +78,13 @@ export function TaskCard({ task, onRefetch, roster = [] }) {
   }
 
   async function handleUndo(assignee) {
+    const reason = undoReasons[assignee.taskId] || ''
+    if (!reason.trim()) return
     setActingOn(assignee.taskId)
     setActionError(null)
     try {
       const idToken = await getToken()
-      await undoCompletion(idToken, assignee.taskId)
+      await undoCompletion(idToken, assignee.taskId, reason)
       setSubmittedIds((prev) => { const s = new Set(prev); s.delete(assignee.taskId); return s })
       await onRefetch()
     } catch (err) {
@@ -212,7 +218,7 @@ export function TaskCard({ task, onRefetch, roster = [] }) {
                       <div className="status-row__complete-group">
                         <textarea
                           className="status-row__note-input"
-                          placeholder="Completion note (optional)…"
+                          placeholder="Completion note (required)…"
                           value={noteTexts[assignee.taskId] || ''}
                           onChange={(e) => setNoteTexts((p) => ({ ...p, [assignee.taskId]: e.target.value }))}
                           disabled={label === 'Not Acknowledged' || label === 'Completed' || alreadySubmitted}
@@ -220,7 +226,13 @@ export function TaskCard({ task, onRefetch, roster = [] }) {
                         />
                         <button
                           type="button"
-                          disabled={label === 'Not Acknowledged' || label === 'Completed' || alreadySubmitted || busy}
+                          disabled={
+                            label === 'Not Acknowledged' ||
+                            label === 'Completed' ||
+                            alreadySubmitted ||
+                            busy ||
+                            !(noteTexts[assignee.taskId] || '').trim()
+                          }
                           onClick={() => handleAction(assignee, 'complete')}
                         >
                           {busy && label === 'Acknowledged' ? 'Completing…' : 'Complete'}
@@ -232,14 +244,23 @@ export function TaskCard({ task, onRefetch, roster = [] }) {
                   {/* Undo completion */}
                   {canUndo && (
                     <div className="status-row__secondary-actions">
-                      <button
-                        type="button"
-                        className="action-btn action-btn--undo"
-                        disabled={busy}
-                        onClick={() => handleUndo(assignee)}
-                      >
-                        {busy ? 'Undoing…' : '↺ Undo Completion'}
-                      </button>
+                      <div className="status-row__complete-group">
+                        <textarea
+                          className="status-row__note-input"
+                          placeholder="Reason for undoing (required)…"
+                          value={undoReasons[assignee.taskId] || ''}
+                          onChange={(e) => setUndoReasons((p) => ({ ...p, [assignee.taskId]: e.target.value }))}
+                          rows={2}
+                        />
+                        <button
+                          type="button"
+                          className="action-btn action-btn--undo"
+                          disabled={busy || !(undoReasons[assignee.taskId] || '').trim()}
+                          onClick={() => handleUndo(assignee)}
+                        >
+                          {busy ? 'Undoing…' : '↺ Undo Completion'}
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -250,7 +271,7 @@ export function TaskCard({ task, onRefetch, roster = [] }) {
                         <div className="status-row__cancel-form">
                           <textarea
                             className="status-row__note-input"
-                            placeholder="Reason for cancellation (optional)…"
+                            placeholder="Reason for cancellation (required)…"
                             value={cancelNotes[assignee.taskId] || ''}
                             onChange={(e) => setCancelNotes((p) => ({ ...p, [assignee.taskId]: e.target.value }))}
                             rows={2}
@@ -259,7 +280,7 @@ export function TaskCard({ task, onRefetch, roster = [] }) {
                             <button
                               type="button"
                               className="action-btn action-btn--cancel-confirm"
-                              disabled={busy}
+                              disabled={busy || !(cancelNotes[assignee.taskId] || '').trim()}
                               onClick={() => handleCancel(assignee)}
                             >
                               {busy ? 'Cancelling…' : 'Confirm Cancel'}

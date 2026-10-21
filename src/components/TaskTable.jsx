@@ -57,6 +57,7 @@ function RowDetail({ row, onClose, onRefetch, roster, profile }) {
   const isCompleted = label === 'Completed' || submitted
 
   async function handleAction(action) {
+    if (action === 'complete' && !noteText.trim()) return
     setActingOn(action)
     setActionError(null)
     try {
@@ -90,6 +91,7 @@ function RowDetail({ row, onClose, onRefetch, roster, profile }) {
   }
 
   async function handleUndo() {
+    if (!undoReason.trim()) return
     setActingOn('undo')
     setActionError(null)
     try {
@@ -218,10 +220,12 @@ function RowDetail({ row, onClose, onRefetch, roster, profile }) {
             <div className="row-detail__col">
               {!isCompleted ? (
                 <>
-                  <p className="row-detail__col-title">Complete Task</p>
+                  <p className="row-detail__col-title">
+                    Complete Task <span className="row-detail__required">*</span>
+                  </p>
                   <textarea
                     className="status-row__note-input row-detail__col-textarea"
-                    placeholder="Completion note (optional)…"
+                    placeholder="Completion note (required)…"
                     value={noteText}
                     onChange={(e) => setNoteText(e.target.value)}
                     disabled={label === 'Not Acknowledged'}
@@ -229,7 +233,7 @@ function RowDetail({ row, onClose, onRefetch, roster, profile }) {
                   />
                   <button
                     type="button"
-                    disabled={label === 'Not Acknowledged' || busy}
+                    disabled={label === 'Not Acknowledged' || busy || !noteText.trim()}
                     onClick={() => handleAction('complete')}
                   >
                     {actingOn === 'complete' ? 'Completing…' : '✓ Complete'}
@@ -237,10 +241,12 @@ function RowDetail({ row, onClose, onRefetch, roster, profile }) {
                 </>
               ) : (
                 <>
-                  <p className="row-detail__col-title">Undo Completion</p>
+                  <p className="row-detail__col-title">
+                    Undo Completion <span className="row-detail__required">*</span>
+                  </p>
                   <textarea
                     className="status-row__note-input row-detail__col-textarea"
-                    placeholder="Reason for undoing (optional)…"
+                    placeholder="Reason for undoing (required)…"
                     value={undoReason}
                     onChange={(e) => setUndoReason(e.target.value)}
                     rows={3}
@@ -248,7 +254,7 @@ function RowDetail({ row, onClose, onRefetch, roster, profile }) {
                   <button
                     type="button"
                     className="action-btn action-btn--undo"
-                    disabled={busy}
+                    disabled={busy || !undoReason.trim()}
                     onClick={handleUndo}
                   >
                     {actingOn === 'undo' ? 'Undoing…' : '↺ Undo Completion'}
